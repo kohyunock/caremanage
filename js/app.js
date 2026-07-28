@@ -584,10 +584,9 @@ class App {
     const plusBtn = container.querySelector('.stepper-plus');
     const input = container.querySelector('input');
 
-    if (!input.value) input.value = defaultVal;
-
     const updateVal = (delta) => {
-      let current = parseFloat(input.value) || defaultVal;
+      let current = (input.value !== undefined && input.value !== '') ? parseFloat(input.value) : defaultVal;
+      if (isNaN(current)) current = defaultVal;
       current = Math.round((current + delta) * 10) / 10;
       if (current < min) current = min;
       if (current > max) current = max;
@@ -662,15 +661,21 @@ class App {
   }
 
   applyCareRecordToForm(d) {
+    // 폼 초기화 (기본 세팅 숫자 제거 및 공백 리셋)
+    ['morningSys', 'morningDia', 'morningTemp', 'morningTime', 'eveningSys', 'eveningDia', 'eveningTemp', 'eveningTime'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+
     if (!d) return;
-    if (d.morning_systolic) { const el = document.getElementById('morningSys'); if (el) el.value = d.morning_systolic; }
-    if (d.morning_diastolic) { const el = document.getElementById('morningDia'); if (el) el.value = d.morning_diastolic; }
-    if (d.morning_temp) { const el = document.getElementById('morningTemp'); if (el) el.value = d.morning_temp; }
+    if (d.morning_systolic != null && d.morning_systolic !== '') { const el = document.getElementById('morningSys'); if (el) el.value = d.morning_systolic; }
+    if (d.morning_diastolic != null && d.morning_diastolic !== '') { const el = document.getElementById('morningDia'); if (el) el.value = d.morning_diastolic; }
+    if (d.morning_temp != null && d.morning_temp !== '') { const el = document.getElementById('morningTemp'); if (el) el.value = d.morning_temp; }
     if (d.morning_time) { const el = document.getElementById('morningTime'); if (el) el.value = CONFIG.formatKSTTime(d.morning_time, ''); }
 
-    if (d.evening_systolic) { const el = document.getElementById('eveningSys'); if (el) el.value = d.evening_systolic; }
-    if (d.evening_diastolic) { const el = document.getElementById('eveningDia'); if (el) el.value = d.evening_diastolic; }
-    if (d.evening_temp) { const el = document.getElementById('eveningTemp'); if (el) el.value = d.evening_temp; }
+    if (d.evening_systolic != null && d.evening_systolic !== '') { const el = document.getElementById('eveningSys'); if (el) el.value = d.evening_systolic; }
+    if (d.evening_diastolic != null && d.evening_diastolic !== '') { const el = document.getElementById('eveningDia'); if (el) el.value = d.evening_diastolic; }
+    if (d.evening_temp != null && d.evening_temp !== '') { const el = document.getElementById('eveningTemp'); if (el) el.value = d.evening_temp; }
     if (d.evening_time) { const el = document.getElementById('eveningTime'); if (el) el.value = CONFIG.formatKSTTime(d.evening_time, ''); }
 
     if (d.condition_memo) { const el = document.getElementById('conditionMemo'); if (el) el.value = d.condition_memo; }
@@ -817,13 +822,8 @@ class App {
 
     this.updateStatusDate(this.currentDateStr);
     
-    // 현재 시각 자동 바인딩
-    const now = new Date();
-    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    const morningTimeEl = document.getElementById('morningTime');
-    const eveningTimeEl = document.getElementById('eveningTime');
-    if (morningTimeEl) morningTimeEl.value = timeStr;
-    if (eveningTimeEl) eveningTimeEl.value = timeStr;
+    // 폼 초기화 (기본 세팅 숫자/시간 제거)
+    this.applyCareRecordToForm(null);
 
     // 1단계: 0ms 초고속 로컬 캐시 즉시 반영
     const localRec = store.getLocalRecord(user.elder_code, this.currentDateStr);
@@ -939,19 +939,32 @@ class App {
     const medEveningChip = document.getElementById('medEveningChip');
     const medMemoEl = document.getElementById('medicationMemo');
 
-    // 기존에 작성된 데이터와 유기적 병합 (재저장 시 데이터 유지)
+    // 기존에 작성된 데이터와 유기적 병합
     const existingRec = store.getLocalRecord(user.elder_code, this.currentDateStr) || {};
 
-    const careData = {
-      morning_systolic: (morningSysEl && morningSysEl.value !== '') ? parseFloat(morningSysEl.value) : (existingRec.morning_systolic || null),
-      morning_diastolic: (morningDiaEl && morningDiaEl.value !== '') ? parseFloat(morningDiaEl.value) : (existingRec.morning_diastolic || null),
-      morning_temp: (morningTempEl && morningTempEl.value !== '') ? parseFloat(morningTempEl.value) : (existingRec.morning_temp || null),
-      morning_time: (morningTimeEl && morningTimeEl.value !== '') ? CONFIG.formatKSTTime(morningTimeEl.value, '') : (existingRec.morning_time ? CONFIG.formatKSTTime(existingRec.morning_time, '') : ''),
+    const hasMorningVitals = (morningSysEl && morningSysEl.value.trim() !== '') || (morningDiaEl && morningDiaEl.value.trim() !== '') || (morningTempEl && morningTempEl.value.trim() !== '');
+    const hasEveningVitals = (eveningSysEl && eveningSysEl.value.trim() !== '') || (eveningDiaEl && eveningDiaEl.value.trim() !== '') || (eveningTempEl && eveningTempEl.value.trim() !== '');
 
-      evening_systolic: (eveningSysEl && eveningSysEl.value !== '') ? parseFloat(eveningSysEl.value) : (existingRec.evening_systolic || null),
-      evening_diastolic: (eveningDiaEl && eveningDiaEl.value !== '') ? parseFloat(eveningDiaEl.value) : (existingRec.evening_diastolic || null),
-      evening_temp: (eveningTempEl && eveningTempEl.value !== '') ? parseFloat(eveningTempEl.value) : (existingRec.evening_temp || null),
-      evening_time: (eveningTimeEl && eveningTimeEl.value !== '') ? CONFIG.formatKSTTime(eveningTimeEl.value, '') : (existingRec.evening_time ? CONFIG.formatKSTTime(existingRec.evening_time, '') : ''),
+    const nowStr = CONFIG.formatKSTTime(new Date(), '');
+
+    const morningTimeVal = hasMorningVitals
+      ? (morningTimeEl && morningTimeEl.value ? CONFIG.formatKSTTime(morningTimeEl.value, nowStr) : nowStr)
+      : (existingRec.morning_time ? CONFIG.formatKSTTime(existingRec.morning_time, '') : '');
+
+    const eveningTimeVal = hasEveningVitals
+      ? (eveningTimeEl && eveningTimeEl.value ? CONFIG.formatKSTTime(eveningTimeEl.value, nowStr) : nowStr)
+      : (existingRec.evening_time ? CONFIG.formatKSTTime(existingRec.evening_time, '') : '');
+
+    const careData = {
+      morning_systolic: (morningSysEl && morningSysEl.value.trim() !== '') ? parseFloat(morningSysEl.value) : (morningSysEl ? null : (existingRec.morning_systolic || null)),
+      morning_diastolic: (morningDiaEl && morningDiaEl.value.trim() !== '') ? parseFloat(morningDiaEl.value) : (morningDiaEl ? null : (existingRec.morning_diastolic || null)),
+      morning_temp: (morningTempEl && morningTempEl.value.trim() !== '') ? parseFloat(morningTempEl.value) : (morningTempEl ? null : (existingRec.morning_temp || null)),
+      morning_time: morningTimeVal,
+
+      evening_systolic: (eveningSysEl && eveningSysEl.value.trim() !== '') ? parseFloat(eveningSysEl.value) : (eveningSysEl ? null : (existingRec.evening_systolic || null)),
+      evening_diastolic: (eveningDiaEl && eveningDiaEl.value.trim() !== '') ? parseFloat(eveningDiaEl.value) : (eveningDiaEl ? null : (existingRec.evening_diastolic || null)),
+      evening_temp: (eveningTempEl && eveningTempEl.value.trim() !== '') ? parseFloat(eveningTempEl.value) : (eveningTempEl ? null : (existingRec.evening_temp || null)),
+      evening_time: eveningTimeVal,
 
       condition: this.selectedCondition || existingRec.condition || '상 (양호)',
       condition_memo: (conditionMemoEl && conditionMemoEl.value.trim() !== '') ? conditionMemoEl.value.trim() : (existingRec.condition_memo || ''),
